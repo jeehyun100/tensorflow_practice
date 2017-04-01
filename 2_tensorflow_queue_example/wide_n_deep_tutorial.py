@@ -44,6 +44,7 @@ import tempfile
 # import urllib
 # import pandas as pd
 import tensorflow as tf
+import math
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
@@ -52,10 +53,7 @@ flags.DEFINE_string("model_dir", "model", "Base directory for output models.")
 flags.DEFINE_string("model_type", "wide_n_deep",
                     "Valid model types: {'wide', 'deep', 'wide_n_deep'}.")
 flags.DEFINE_integer("train_steps", 200, "Number of training steps.")
-flags.DEFINE_string(
-    "train_data",
-    "adult_data.tfrecords",
-    "Path to the training data.")
+
 flags.DEFINE_string(
     "test_data",
     "adult_data.tfrecords",
@@ -225,6 +223,7 @@ def train_and_eval():
   #dnn/input_from_feature_columns/input_from_feature_columns/education_num/ToFloat
   #read_batch_features_train
   #dnn/input_from_feature_columns/input_from_feature_columns/age/ToFloa
+  filename = '/home/dev/tensorflow_practice/2_tensorflow_queue_example/adult_data.tfrecords'
   model_dir = tempfile.mkdtemp() if not FLAGS.model_dir else FLAGS.model_dir
   print("model directory = %s" % model_dir)
   #tensor_names = ['dnn/input_from_feature_columns/input_from_feature_columns/hours_per_week']
@@ -244,7 +243,20 @@ def train_and_eval():
   m = build_estimator(model_dir)
   # m.fit(input_fn=lambda: input_fn(df_train), steps=FLAGS.train_steps)
   # results = m.evaluate(input_fn=lambda: input_fn(df_test), steps=1)
-  m.fit(input_fn=lambda: data.input_fn(tf.contrib.learn.ModeKeys.TRAIN, FLAGS.train_data, 128), steps=FLAGS.train_steps,monitors=[print_monitor] )
+
+  file_name = 'adult_data.tfrecords'
+  tf_row_iter = tf.python_io.tf_record_iterator(file_name)
+  tf_row_count = ilen(tf_row_iter)
+  batch_size = 9000
+  loop_cnt = tf_row_count/batch_size
+
+  print("tfrecord count " + str(tf_row_count))
+  for loops in range(int(math.ceil(tf_row_count/batch_size))):
+
+    #m.fit(input_fn=lambda: data.input_fn(tf.contrib.learn.ModeKeys.TRAIN, filename, batch_size), steps=FLAGS.train_steps,monitors=[print_monitor] )
+    m.partial_fit(input_fn=lambda: data.input_fn(tf.contrib.learn.ModeKeys.TRAIN, filename, batch_size), steps=FLAGS.train_steps,monitors=[print_monitor] )
+
+
   results = m.evaluate(input_fn=lambda: data.input_fn(tf.contrib.learn.ModeKeys.EVAL, FLAGS.test_data, 128), steps=1)
   for key in sorted(results):
     print("%s: %s" % (key, results[key]))
@@ -305,6 +317,8 @@ def read_and_decode2(filename_queue):
     try:
         input_features = data.create_feature_columns()
         features = tf.contrib.layers.create_feature_spec_for_parsing(input_features)
+        reader = tf.TFRecordReader()
+        index, row =    reader.read(filename_queue)
 
         feature_map = tf.contrib.learn.io.read_batch_record_features(
             file_pattern=[filename_queue],
@@ -330,6 +344,9 @@ def read_and_decode2(filename_queue):
 
     return feature_map, target
 
+def ilen(it):
+    return len(list(it))
+
 def multi_queue():
     filename = 'adult_data.tfrecords'
 
@@ -340,8 +357,20 @@ def multi_queue():
     #꼭 local variable initial  해야함
     init_op =  tf.local_variables_initializer()
 
+
+    file_name = "adult_data.tfrecords"
+
+    iterrrrr = tf.python_io.tf_record_iterator(file_name)
+    print("tfrecord count " + str(ilen(iterrrrr)))
+        # for s_example in tf.python_io.tf_record_iterator(file_name):
+        #     example = tf.parse_single_example(s_example, features=features)
+        #     data.append(tf.expand_dims(example['x'], 0))
+
+    #reader = tf.TFRecordReader()
+    #index, row = reader.read(filename_queue)
+
     #Multi Thread로 들고옴
-    feature_map, target = data.input_fn(tf.contrib.learn.ModeKeys.EVAL, FLAGS.test_data, 128)
+    feature_map, target = data.input_fn(tf.contrib.learn.ModeKeys.EVAL, file_name, 128)
 
 
     with tf.Session() as sess:

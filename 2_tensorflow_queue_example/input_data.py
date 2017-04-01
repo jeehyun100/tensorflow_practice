@@ -73,7 +73,7 @@ def input_fn(mode, data_file, batch_size):
         # sess = tf.Session()
         # sess.run(a)
         x = tf.Print(feature_map['age'], [feature_map['age']])
-        print(x)
+        print('128')
 
 
 
