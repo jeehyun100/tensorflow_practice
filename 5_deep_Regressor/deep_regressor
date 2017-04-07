@@ -1,0 +1,82 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+import pandas as pd
+import tensorflow as tf
+
+tf.logging.set_verbosity(tf.logging.INFO)
+
+COLUMNS = ["crim", "zn", "indus", "nox", "rm", "age",
+           "dis", "tax", "ptratio", "medv"]
+FEATURES = ["crim", "zn", "indus", "nox", "rm",
+            "age", "dis", "tax", "ptratio"]
+LABEL = "medv"
+
+training_set = pd.read_csv("boston_train.csv", skipinitialspace=True,
+                           skiprows=1, names=COLUMNS)
+test_set = pd.read_csv("boston_test.csv", skipinitialspace=True,
+                       skiprows=1, names=COLUMNS)
+prediction_set = pd.read_csv("boston_predict.csv", skipinitialspace=True,
+                             skiprows=1, names=COLUMNS)
+
+feature_cols = [tf.contrib.layers.real_valued_column(k)
+                  for k in FEATURES]
+
+regressor = tf.contrib.learn.DNNRegressor(
+    feature_columns=feature_cols, hidden_units=[10, 10])
+
+def input_fn(data_set):
+  feature_cols = {k2: tf.constant(data_set[k2].values) for k2 in FEATURES}
+  labels = tf.constant(data_set[LABEL].values)
+  return feature_cols, labels
+
+def min_f(x, per):
+
+    return x * (1-per)
+
+def max_f(x,per):
+
+    return x *(1+per)
+
+
+def final_regresstion(x, y):
+
+    _min  = x * 0.9
+    _max =  x * 1.1
+
+
+    if (_min <= y and _max >= y):
+        result = True
+
+    else :
+        result = False
+
+    return result
+
+regressor.fit(input_fn=lambda: input_fn(training_set), steps=100000)
+
+predict_percent = 0.1
+
+
+ev = regressor.evaluate(input_fn=lambda: input_fn(test_set), steps=1)
+
+loss_score = ev["loss"]
+print("Loss: {0:f}".format(loss_score))
+
+for key in sorted(ev):
+    print("%s: %s" % (key, ev[key]))
+
+y2 = regressor.predict(input_fn=lambda: input_fn(test_set))
+test_set['predict'] = list(y2)
+#test_set['min'] = test_set['medv'].map(lambda x: min_f(x,predict_percent))
+#test_set['max'] = test_set['medv'].map(lambda x : max_f(x,predict_percent))
+test_set['result'] = list(map(final_regresstion, test_set['medv'], test_set['predict']))
+print(len(test_set[test_set['result']].index.tolist()))
+# for _k in test_set['predict'].item():
+#     if (min<=  || max ):
+
+print(test_set)
+#print ("Predictions: {}".format(list(training_set)))
+
+y = regressor.predict(input_fn=lambda: input_fn(prediction_set))
+print ("Predictions: {}".format(str(y)))
